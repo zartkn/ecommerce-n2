@@ -1,0 +1,160 @@
+# ===================== Pagamento · Marco · C# .NET 8 + MySQL =====================
+# Banco próprio (Database per Service)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-pagamento
+  labels:
+    app: mysql-pagamento
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-pagamento
+  template:
+    metadata:
+      labels:
+        app: mysql-pagamento
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: pagamento
+            - name: MYSQL_USER
+              value: pagamento
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: PAGAMENTO_DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: MYSQL_ROOT_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 768Mi
+          volumeMounts:
+            - name: dados
+              mountPath: /var/lib/mysql
+      # Sem volume persistente de propósito (limitação de IAM do Learner Lab).
+      volumes:
+        - name: dados
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-pagamento
+  labels:
+    app: mysql-pagamento
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql-pagamento
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pagamento
+  labels:
+    app: pagamento
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pagamento
+  template:
+    metadata:
+      labels:
+        app: pagamento
+    spec:
+      containers:
+        - name: pagamento
+          image: usuario-marco/ms-pagamento:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_HTTP_PORTS
+              value: "8080"
+            - name: DB_HOST
+              value: mysql-pagamento
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: pagamento
+            - name: DB_USER
+              value: pagamento
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: PAGAMENTO_DB_PASSWORD
+            - name: RABBITMQ_HOST
+              value: rabbitmq
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              value: ecommerce
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: RABBITMQ_PASSWORD
+            - name: RABBITMQ_EXCHANGE
+              value: ecommerce.eventos
+            - name: PAGAMENTO_LIMITE_CENTAVOS
+              value: "100000"
+            - name: PAGAMENTO_DELAY_MS
+              value: "2000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            # Margem para o retry de 2 minutos da subida (MySQL e RabbitMQ)
+            initialDelaySeconds: 150
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 384Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pagamento
+  labels:
+    app: pagamento
+spec:
+  type: ClusterIP
+  selector:
+    app: pagamento
+  ports:
+    - port: 8080
+      targetPort: 8080

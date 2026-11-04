@@ -1,0 +1,40 @@
+# Regras de roteamento externo pelo NGINX Ingress Controller (CONTRATOS.md, seção 10.3).
+# Sem host e sem rewrite: cada serviço já responde com o prefixo /api/... completo.
+# URL externa: kubectl get svc -n ingress-nginx ingress-nginx-controller  (coluna EXTERNAL-IP)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/produtos
+            pathType: Prefix
+            backend:
+              service:
+                name: catalogo
+                port:
+                  number: 3000
+          - path: /api/pedidos
+            pathType: Prefix
+            backend:
+              service:
+                name: pedidos
+                port:
+                  number: 8000
+          - path: /api/pagamentos
+            pathType: Prefix
+            backend:
+              service:
+                name: pagamento
+                port:
+                  number: 8080
+          - path: /api/notificacoes
+            pathType: Prefix
+            backend:
+              service:
+                name: notificacao
+                port:
+                  number: 8001

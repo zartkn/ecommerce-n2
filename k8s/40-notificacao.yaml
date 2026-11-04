@@ -1,0 +1,130 @@
+# ===================== Notificação · Mickael · Python + MongoDB =====================
+# Banco próprio (Database per Service)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-notificacao
+  labels:
+    app: mongo-notificacao
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo-notificacao
+  template:
+    metadata:
+      labels:
+        app: mongo-notificacao
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          ports:
+            - containerPort: 27017
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: dados
+              mountPath: /data/db
+      # Sem volume persistente de propósito (limitação de IAM do Learner Lab).
+      volumes:
+        - name: dados
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-notificacao
+  labels:
+    app: mongo-notificacao
+spec:
+  type: ClusterIP
+  selector:
+    app: mongo-notificacao
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notificacao
+  labels:
+    app: notificacao
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notificacao
+  template:
+    metadata:
+      labels:
+        app: notificacao
+    spec:
+      containers:
+        - name: notificacao
+          image: usuario-mickael/ms-notificacao:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+          env:
+            - name: PORT
+              value: "8001"
+            - name: MONGO_URL
+              value: mongodb://mongo-notificacao:27017/notificacao
+            - name: RABBITMQ_HOST
+              value: rabbitmq
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              value: ecommerce
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: RABBITMQ_PASSWORD
+            - name: RABBITMQ_EXCHANGE
+              value: ecommerce.eventos
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            # Margem para o retry de 2 minutos da subida (Mongo e RabbitMQ)
+            initialDelaySeconds: 150
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notificacao
+  labels:
+    app: notificacao
+spec:
+  type: ClusterIP
+  selector:
+    app: notificacao
+  ports:
+    - port: 8001
+      targetPort: 8001

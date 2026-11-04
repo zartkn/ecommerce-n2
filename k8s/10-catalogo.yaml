@@ -1,0 +1,121 @@
+# ===================== Catálogo · Pedro · Node.js + MongoDB =====================
+# Banco próprio (Database per Service)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-catalogo
+  labels:
+    app: mongo-catalogo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo-catalogo
+  template:
+    metadata:
+      labels:
+        app: mongo-catalogo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          ports:
+            - containerPort: 27017
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: dados
+              mountPath: /data/db
+      # Sem volume persistente de propósito (limitação de IAM do Learner Lab).
+      # Os dados somem se o Pod reiniciar; o seed recria os produtos.
+      volumes:
+        - name: dados
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-catalogo
+  labels:
+    app: mongo-catalogo
+spec:
+  type: ClusterIP
+  selector:
+    app: mongo-catalogo
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+# Microsserviço com 3 réplicas: requisito de escalabilidade horizontal
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalogo
+  labels:
+    app: catalogo
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: catalogo
+  template:
+    metadata:
+      labels:
+        app: catalogo
+    spec:
+      containers:
+        - name: catalogo
+          image: usuario-pedro/ms-catalogo:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: MONGO_URL
+              value: mongodb://mongo-catalogo:27017/catalogo
+            - name: SEED_ON_START
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            # Margem para o retry de 2 minutos da subida (Mongo)
+            initialDelaySeconds: 150
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalogo
+  labels:
+    app: catalogo
+spec:
+  type: ClusterIP
+  selector:
+    app: catalogo
+  ports:
+    - port: 3000
+      targetPort: 3000

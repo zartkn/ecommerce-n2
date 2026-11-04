@@ -1,0 +1,160 @@
+# ===================== Pedidos · Edmund · Python + MySQL =====================
+# Banco próprio (Database per Service)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-pedidos
+  labels:
+    app: mysql-pedidos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-pedidos
+  template:
+    metadata:
+      labels:
+        app: mysql-pedidos
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: pedidos
+            - name: MYSQL_USER
+              value: pedidos
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: PEDIDOS_DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: MYSQL_ROOT_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 768Mi
+          volumeMounts:
+            - name: dados
+              mountPath: /var/lib/mysql
+      # Sem volume persistente de propósito (limitação de IAM do Learner Lab).
+      volumes:
+        - name: dados
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-pedidos
+  labels:
+    app: mysql-pedidos
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql-pedidos
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pedidos
+  labels:
+    app: pedidos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pedidos
+  template:
+    metadata:
+      labels:
+        app: pedidos
+    spec:
+      containers:
+        - name: pedidos
+          image: usuario-edmund/ms-pedidos:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PORT
+              value: "8000"
+            - name: DB_HOST
+              value: mysql-pedidos            # nome do Service, nunca IP do Pod
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: pedidos
+            - name: DB_USER
+              value: pedidos
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: PEDIDOS_DB_PASSWORD
+            - name: CATALOGO_URL
+              value: http://catalogo:3000     # Service Discovery por DNS do Kubernetes
+            - name: CATALOGO_TIMEOUT_MS
+              value: "3000"
+            - name: RABBITMQ_HOST
+              value: rabbitmq
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              value: ecommerce
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: RABBITMQ_PASSWORD
+            - name: RABBITMQ_EXCHANGE
+              value: ecommerce.eventos
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            # Margem para o retry de 2 minutos da subida (MySQL e RabbitMQ)
+            initialDelaySeconds: 150
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pedidos
+  labels:
+    app: pedidos
+spec:
+  type: ClusterIP
+  selector:
+    app: pedidos
+  ports:
+    - port: 8000
+      targetPort: 8000

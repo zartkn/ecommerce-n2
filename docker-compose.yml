@@ -1,0 +1,165 @@
+# Ambiente local de desenvolvimento (NÃO substitui o EKS na entrega).
+# Os nomes dos serviços são iguais aos nomes dos Services do Kubernetes,
+# então as variáveis de ambiente padrão funcionam nos dois lugares.
+#
+#   docker compose up --build
+#   ./scripts/demo.sh              (usa http://localhost, igual ao Ingress)
+#
+name: ecommerce-n2
+
+services:
+  # ---------- Infra ----------
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ecommerce
+      RABBITMQ_DEFAULT_PASS: ecommerce123
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # painel: http://localhost:15672 (ecommerce / ecommerce123)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mongo-catalogo:
+    image: mongo:7
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mongo-notificacao:
+    image: mongo:7
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mysql-pedidos:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: pedidos
+      MYSQL_USER: pedidos
+      MYSQL_PASSWORD: pedidos123
+      MYSQL_ROOT_PASSWORD: root123
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot123 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mysql-pagamento:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: pagamento
+      MYSQL_USER: pagamento
+      MYSQL_PASSWORD: pagamento123
+      MYSQL_ROOT_PASSWORD: root123
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot123 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # ---------- Microsserviços ----------
+  catalogo:            # Pedro · Node.js + MongoDB
+    build: ./ms-catalogo
+    image: ms-catalogo:dev
+    environment:
+      PORT: "3000"
+      MONGO_URL: mongodb://mongo-catalogo:27017/catalogo
+      SEED_ON_START: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongo-catalogo:
+        condition: service_healthy
+
+  pedidos:             # Edmund · Python + MySQL
+    build: ./ms-pedidos
+    image: ms-pedidos:dev
+    environment:
+      PORT: "8000"
+      DB_HOST: mysql-pedidos
+      DB_PORT: "3306"
+      DB_NAME: pedidos
+      DB_USER: pedidos
+      DB_PASSWORD: pedidos123
+      CATALOGO_URL: http://catalogo:3000
+      CATALOGO_TIMEOUT_MS: "3000"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ecommerce
+      RABBITMQ_PASSWORD: ecommerce123
+      RABBITMQ_EXCHANGE: ecommerce.eventos
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql-pedidos:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      catalogo:
+        condition: service_started
+
+  pagamento:           # Marco · C# + MySQL
+    build: ./ms-pagamento
+    image: ms-pagamento:dev
+    environment:
+      ASPNETCORE_HTTP_PORTS: "8080"
+      DB_HOST: mysql-pagamento
+      DB_PORT: "3306"
+      DB_NAME: pagamento
+      DB_USER: pagamento
+      DB_PASSWORD: pagamento123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ecommerce
+      RABBITMQ_PASSWORD: ecommerce123
+      RABBITMQ_EXCHANGE: ecommerce.eventos
+      PAGAMENTO_LIMITE_CENTAVOS: "100000"
+      PAGAMENTO_DELAY_MS: "2000"
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql-pagamento:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  notificacao:         # Mickael · Python + MongoDB
+    build: ./ms-notificacao
+    image: ms-notificacao:dev
+    environment:
+      PORT: "8001"
+      MONGO_URL: mongodb://mongo-notificacao:27017/notificacao
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ecommerce
+      RABBITMQ_PASSWORD: ecommerce123
+      RABBITMQ_EXCHANGE: ecommerce.eventos
+    ports:
+      - "8001:8001"
+    depends_on:
+      mongo-notificacao:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------- "Ingress" local ----------
+  # NGINX com as mesmas regras de path do Ingress do EKS: http://localhost/api/...
+  gateway:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./local/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - catalogo
+      - pedidos
+      - pagamento
+      - notificacao
