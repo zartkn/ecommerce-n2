@@ -167,6 +167,8 @@ O script termina mostrando a URL externa (hostname do Load Balancer). O DNS do N
 
 ## 4. Roteiro da apresentação
 
+> **O roteiro oficial de 5 minutos, com falas, checklist do dia e perguntas prováveis, está no [APRESENTACAO.md](APRESENTACAO.md).** Os scripts são `scripts/preflight.sh`, `scripts/apresentacao.sh` e `scripts/logs-fluxo.sh`. A tabela abaixo é a versão longa, para ensaio e para estudar.
+
 Dois terminais lado a lado e o painel do RabbitMQ aberto (`kubectl port-forward svc/rabbitmq 15672:15672`).
 
 | Etapa | Comando | Rubrica |
