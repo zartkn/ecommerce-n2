@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Evidências de infraestrutura para a banca (rubrica 2 e isolamento da rubrica 1).
 #   ./scripts/evidencias-k8s.sh
+export MSYS_NO_PATHCONV=1   # Git Bash no Windows: não converter argumentos que parecem caminho
 set -uo pipefail
 
 titulo() { printf "\n\033[1;36m==== %s ====\033[0m\n" "$1"; }

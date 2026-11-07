@@ -10,6 +10,7 @@
 #
 # A imagem sai sempre em linux/amd64, que é a arquitetura dos nós t3.medium do EKS.
 # Sem isso, quem builda num Mac M1/M2/M3 gera imagem arm64 e o Pod dá "exec format error".
+export MSYS_NO_PATHCONV=1   # Git Bash no Windows: não converter argumentos que parecem caminho
 set -euo pipefail
 
 SERVICO="${1:-}"

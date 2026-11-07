@@ -78,6 +78,7 @@ bloco_2() {
   run "kubectl scale deployment catalogo --replicas=5"
   run "kubectl rollout status deployment/catalogo --timeout=120s"
   run "kubectl get pods -l app=catalogo -o $PODS_COLS"
+  sleep 3   # tempo para o Ingress Controller atualizar a lista de endpoints
   nota "As réplicas novas já entram no balanceamento:"
   quem_respondeu 15
 

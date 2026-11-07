@@ -32,7 +32,7 @@ spec:
               cpu: 100m
               memory: 256Mi
             limits:
-              memory: 512Mi
+              memory: 768Mi
           volumeMounts:
             - name: dados
               mountPath: /data/db
@@ -86,12 +86,13 @@ spec:
               value: mongodb://mongo-catalogo:27017/catalogo
             - name: SEED_ON_START
               value: "true"
+          # Readiness rápida: na demo, as réplicas novas do scale ficam prontas em ~5 s
           readinessProbe:
             httpGet:
               path: /health
               port: 3000
-            initialDelaySeconds: 10
-            periodSeconds: 5
+            initialDelaySeconds: 3
+            periodSeconds: 2
           livenessProbe:
             httpGet:
               path: /health

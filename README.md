@@ -58,6 +58,8 @@ Regra do pagamento (mock): total até R$ 1.000,00 aprova, acima disso recusa com
 ```
 ecommerce-n2/
 ├── CONTRATOS.md            contrato da integração (leitura obrigatória)
+├── AWS.md                 passo a passo do Learner Lab e do EKS
+├── APRESENTACAO.md        roteiro de 5 minutos, checklist do dia e perguntas prováveis
 ├── docker-compose.yml      ambiente local completo + gateway NGINX imitando o Ingress
 ├── local/nginx.conf        regras do gateway local (iguais às do Ingress)
 ├── ms-catalogo/            Pedro   · Node.js + MongoDB
@@ -74,8 +76,11 @@ ecommerce-n2/
 │   └── 90-ingress.yaml     regras do NGINX Ingress
 └── scripts/
     ├── build-push.sh       builda (linux/amd64), publica no Docker Hub e atualiza o YAML
-    ├── eks-deploy.sh       instala o Ingress Controller e aplica tudo no EKS
-    ├── demo.sh             roteiro da demo pelas APIs
+    ├── eks-deploy.sh       tags das subnets, Ingress Controller e deploy no EKS (--so-infra para só a infra)
+    ├── preflight.sh        22 checagens antes da apresentação
+    ├── apresentacao.sh     os 4 blocos da apresentação e os extras
+    ├── logs-fluxo.sh       logs ao vivo de todos os serviços (segundo terminal)
+    ├── demo.sh             roteiro longo da demo pelas APIs
     └── evidencias-k8s.sh   evidências de cluster, discovery, isolamento e RabbitMQ
 ```
 
@@ -123,47 +128,15 @@ O script builda em `linux/amd64` (arquitetura dos nós do EKS), faz o push e tro
 
 ## 3. Criar o cluster no AWS Academy Learner Lab
 
+**O passo a passo completo, tela por tela, está no [AWS.md](AWS.md).** Resumo:
+
 No Learner Lab o IAM é bem limitado: não dá para criar roles, então tudo usa a **LabRole**. Por isso o cluster é criado pelo console, e não pelo `eksctl` (ele tenta criar roles e falha).
 
-**3.1 Credenciais (toda vez que abrir o lab)**
-1. Start Lab, esperar a bolinha ficar verde.
-2. **AWS Details → AWS CLI: Show** e copiar o bloco inteiro para `~/.aws/credentials` (no Windows: `C:\Users\<voce>\.aws\credentials`).
-3. Região: `us-east-1`.
-4. Testar: `aws sts get-caller-identity`
-
-As credenciais expiram quando a sessão acaba. Sessão nova, credenciais novas.
-
-**3.2 Cluster** (EKS → Clusters → Create cluster)
-- Configuração: **Custom configuration** (desligar o EKS Auto Mode)
-- Nome: `ecommerce-n2`
-- Cluster IAM role: **LabRole**
-- Versão do Kubernetes: a padrão
-- Autenticação: EKS API and ConfigMap
-- Rede: VPC padrão, subnets de pelo menos 2 zonas, **sem `us-east-1e`** (o EKS não aceita essa zona)
-- Endpoint: Public
-- Add-ons: os padrões (CoreDNS, kube-proxy, Amazon VPC CNI)
-- Criar e esperar ficar **Active** (10 a 15 minutos)
-
-**3.3 Node group** (cluster → Compute → Add node group)
-- Nome: `ng-ecommerce`
-- Node IAM role: **LabRole**
-- AMI: Amazon Linux 2023 (x86_64)
-- Instância: `t3.medium`, disco 20 GB
-- Escala: desejado 2, mínimo 2, máximo 3
-- Subnets: as mesmas do cluster
-- Criar e esperar ficar **Active** (5 minutos)
-
-**3.4 Deploy**
-
-```bash
-aws eks update-kubeconfig --region us-east-1 --name ecommerce-n2
-kubectl get nodes                       # 2 nós Ready
-./scripts/eks-deploy.sh ecommerce-n2    # Ingress Controller + todos os manifests
-```
-
-O script termina mostrando a URL externa (hostname do Load Balancer). O DNS do NLB pode levar de 1 a 3 minutos para responder.
-
-**3.5 Depois da apresentação**: apagar o node group e depois o cluster. O control plane do EKS cobra por hora mesmo sem uso e consome o crédito do lab.
+- Cluster `ecommerce-n2`: Custom configuration sem Auto Mode, role **LabRole**, Kubernetes **1.35**, upgrade policy **Standard**, VPC padrão **sem a subnet da `us-east-1e`**
+- Node group `ng-ecommerce`: role **LabRole**, Amazon Linux 2023 x86_64, `t3.medium`, 2 nós (máximo 3)
+- Infra do Kubernetes, sem precisar das imagens: `./scripts/eks-deploy.sh ecommerce-n2 --so-infra` (tags das subnets, Ingress Controller e Load Balancer)
+- Aplicação, depois das imagens publicadas: `./scripts/eks-deploy.sh ecommerce-n2` e `./scripts/preflight.sh`
+- Depois da apresentação: apagar o Ingress e o namespace `ingress-nginx` **antes** do cluster, senão o Load Balancer fica órfão e continua cobrando
 
 ## 4. Roteiro da apresentação
 

@@ -57,22 +57,37 @@ Sobrou mais de 30 segundos no ensaio? Rodar `./scripts/apresentacao.sh fila` no 
 
 ## 4. Checklist
 
+### Notebook do Pedro (e o do Edmund, como reserva)
+- [ ] Git Bash (vem com o Git for Windows) ou WSL. Os scripts são bash e não rodam no PowerShell
+- [ ] AWS CLI v2 e kubectl (`winget install Amazon.AWSCLI Kubernetes.kubectl`)
+- [ ] jq para o JSON sair formatado (`winget install jqlang.jq`)
+- [ ] Repositório atualizado (`git pull`)
+- [ ] Testar o notebook no projetor da sala, ou pelo menos em 1280x720: os dois terminais lado a lado precisam ficar legíveis
+
 ### Até segunda 09
 - [ ] Deploy feito e `./scripts/preflight.sh` com **TUDO PRONTO**
-- [ ] 3 ensaios cronometrados com o roteiro acima. Meta: terminar em 4min30
+- [ ] 3 ensaios cronometrados com o roteiro acima. Meta: terminar em 4min30. No primeiro, anotar quanto tempo cada bloco levou de verdade no cluster
+- [ ] **Ensaio "a frio" na segunda:** com o lab parado desde a noite anterior, fazer exatamente o procedimento de terça (Start Lab, credenciais, preflight) e **cronometrar até o TUDO PRONTO**. Esse tempo é o que define o horário de chegada na terça
 - [ ] **Gravar um ensaio completo em vídeo** (plano C)
-- [ ] Notebook do Pedro com Git Bash (ou WSL), kubectl, AWS CLI e o repo atualizado
-- [ ] Um segundo notebook (Edmund) com kubectl e AWS CLI instalados, como reserva
+- [ ] Conferir o crédito restante do Learner Lab do Pedro (fica no topo da página do lab)
 - [ ] **Não apagar o cluster depois do ensaio**
 
-### Terça 10
-- [ ] **T-60 min:** Pedro abre o Learner Lab (Start Lab) e espera ficar verde
-- [ ] **T-45:** copia o AWS Details para `~/.aws/credentials`, roda `aws eks update-kubeconfig --region us-east-1 --name ecommerce-n2`
-- [ ] **T-40:** `./scripts/preflight.sh`. Se os nós ainda estiverem NotReady, esperar 5 min e rodar de novo. Se continuar, EC2 → Instances → Start nas instâncias paradas
-- [ ] **T-15:** abrir os terminais B e C e o painel do RabbitMQ na aba Queues
-- [ ] **T-5:** `./scripts/preflight.sh` de novo, fechar notificações do sistema, `clear` no terminal A
-- [ ] Pedro manda o texto do AWS Details para o Edmund no privado (reserva, caso o notebook dele falhe)
-- [ ] **Depois da apresentação:** apagar o node group e depois o cluster
+### Terça 10, passo a passo
+
+| Quando | Quem | O quê |
+|---|---|---|
+| T-60 min | Pedro | Start Lab e esperar a bolinha ficar verde |
+| T-50 | Pedro | No Git Bash: colar o AWS Details em `~/.aws/credentials` e rodar `aws eks update-kubeconfig --region us-east-1 --name ecommerce-n2` |
+| T-45 | Pedro | `./scripts/preflight.sh`. Nós NotReady: esperar 5 min e rodar de novo. Se continuar, EC2 → Instances → Start nas instâncias paradas |
+| T-45 | Pedro | Mandar o texto do AWS Details para o Edmund no privado (reserva) |
+| T-30 | Edmund | Com as credenciais do Pedro, rodar `./scripts/preflight.sh` no notebook reserva. Assim os dois notebooks ficam prontos |
+| T-15 | Pedro | Terminal B: `./scripts/logs-fluxo.sh`. Terminal C: `kubectl port-forward svc/rabbitmq 15672:15672`. Navegador na aba Queues do painel |
+| T-10 | Pedro | Se a sessão do lab estiver com menos de 1 hora, clicar em Start Lab de novo para renovar o tempo |
+| T-5 | Pedro | `./scripts/preflight.sh` de novo, `clear` no terminal A, modo não perturbe ligado, fechar o resto |
+| Na hora | Todos | Roteiro da seção 2. Pedro digita, cada um fala a sua parte |
+| Depois | Pedro | Responder perguntas com os extras da seção 3. Ao sair: desmontar na ordem da fase 9 do AWS.md (Ingress e namespace `ingress-nginx` primeiro, depois node group e cluster) |
+
+Atenção: o `logs-fluxo.sh` só acompanha os Pods que existiam quando ele foi aberto. Se rodar `preflight.sh` depois e ele voltar o catalogo para 3 réplicas, feche e abra o terminal B de novo.
 
 ## 5. Planos B e C
 

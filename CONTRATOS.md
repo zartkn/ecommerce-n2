@@ -1,6 +1,6 @@
 # Contratos do projeto · E-commerce N2 (Back-End: Cloud Computing)
 
-Versão 1.1 · 03/11/2026
+Versão 1.2 · 04/11/2026
 
 Este arquivo é a fonte única da verdade da integração. Tudo aqui é obrigatório, a não ser o que estiver marcado como **(recomendado)**. Mudou alguma coisa? Avisa no grupo e atualiza este arquivo no mesmo commit, subindo a versão.
 
@@ -582,13 +582,15 @@ No Kubernetes as senhas ficam num Secret chamado `ecommerce-secrets` e entram no
 ```yaml
 readinessProbe:
   httpGet: { path: /health, port: <porta> }
-  initialDelaySeconds: 10
-  periodSeconds: 5
+  initialDelaySeconds: 10    # catalogo: 3
+  periodSeconds: 5           # catalogo: 2
 livenessProbe:
   httpGet: { path: /health, port: <porta> }
-  initialDelaySeconds: 30
+  initialDelaySeconds: 150   # margem para o retry de 2 minutos da subida
   periodSeconds: 10
 ```
+
+O `catalogo` tem readiness mais rápida de propósito: no `kubectl scale` ao vivo da apresentação, as réplicas novas ficam prontas em uns 5 segundos.
 
 ### 10.3 Ingress
 
@@ -630,3 +632,4 @@ Para a documentação abrir pelo Ingress, ela tem que ficar dentro do base path 
 ## Histórico
 - 1.0 (03/11/2026): primeira versão
 - 1.1 (03/11/2026): Pedidos faz commit antes de publicar e usa `mandatory` na publicação; logs de duplicidade; placeholders de imagem; versão do Ingress Controller; build em linux/amd64
+- 1.2 (04/11/2026): probes da seção 10.2 alinhadas com os YAML (liveness 150 s) e readiness rápida no catalogo

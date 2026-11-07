@@ -5,6 +5,7 @@
 #   ./scripts/demo.sh                                       # docker-compose (http://localhost)
 #
 # Pausa entre as etapas. Para rodar direto, sem pausa: SEM_PAUSA=1 ./scripts/demo.sh ...
+export MSYS_NO_PATHCONV=1   # Git Bash no Windows: não converter argumentos que parecem caminho
 set -uo pipefail
 
 BASE="${1:-http://localhost}"

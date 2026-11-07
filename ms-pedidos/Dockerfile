@@ -13,4 +13,5 @@ COPY app ./app
 EXPOSE 8000
 RUN useradd --create-home appuser
 USER appuser
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+# exec: o uvicorn vira o processo principal e recebe o SIGTERM do Kubernetes
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
