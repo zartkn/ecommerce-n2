@@ -73,7 +73,7 @@ spec:
     spec:
       containers:
         - name: notificacao
-          image: usuario-mickael/ms-notificacao:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
+          image: marukoalitini/ms-notificacao:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
           imagePullPolicy: Always
           ports:
             - containerPort: 8001

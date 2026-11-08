@@ -75,7 +75,7 @@ spec:
     spec:
       containers:
         - name: catalogo
-          image: usuario-pedro/ms-catalogo:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
+          image: marukoalitini/ms-catalogo:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

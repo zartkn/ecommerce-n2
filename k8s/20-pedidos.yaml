@@ -88,7 +88,7 @@ spec:
     spec:
       containers:
         - name: pedidos
-          image: usuario-edmund/ms-pedidos:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
+          image: marukoalitini/ms-pedidos:1.0.0   # trocar pelo usuário do Docker Hub (scripts/build-push.sh faz isso)
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
